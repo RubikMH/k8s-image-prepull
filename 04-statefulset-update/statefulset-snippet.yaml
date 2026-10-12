@@ -1,0 +1,37 @@
+# Settings that help to keep downtime low. Merge into your StatefulSet.
+spec:
+  replicas: 3                        # 2+ replicas = service stays up during update
+  podManagementPolicy: OrderedReady  # or Parallel if your app allows it
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+      # maxUnavailable: 1            # only if your Kubernetes version has this feature enabled
+  template:
+    spec:
+      terminationGracePeriodSeconds: 30   # lower if the app stops fast
+      containers:
+        - name: myapp
+          image: registry.example.com/myapp:1.2.3   # fixed tag, never latest
+          imagePullPolicy: IfNotPresent             # use the pre-pulled image
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]    # let the Service remove the pod first
+          startupProbe:
+            httpGet: {path: /healthz, port: 8080}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /ready, port: 8080}
+            periodSeconds: 3
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: myapp
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: myapp

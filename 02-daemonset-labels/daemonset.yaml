@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prepull-myapp
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: prepull-myapp
+  template:
+    metadata:
+      labels:
+        app: prepull-myapp
+    spec:
+      nodeSelector:
+        prepull: "true"          # only nodes with this label get the image
+      tolerations:
+        - operator: Exists       # also run on tainted nodes (remove if not wanted)
+      initContainers:
+        - name: pull
+          image: IMAGE_PLACEHOLDER   # replaced by prepull-ds.sh
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "exit 0"]
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.9

@@ -1,0 +1,22 @@
+---
+- name: Pre-pull container image on nodes
+  hosts: "{{ target | default('workers') }}"
+  become: true
+  gather_facts: false
+  serial: "{{ parallel | default(10) }}"
+  vars:
+    image: ""
+  tasks:
+    - name: Check image variable is set
+      ansible.builtin.assert:
+        that: image | length > 0
+        fail_msg: "Pass the image: -e image=registry.example.com/myapp:1.2.3"
+
+    - name: Pull image with crictl
+      ansible.builtin.command: "crictl pull {{ image }}"
+      register: pull_result
+      changed_when: "'Image is up to date' not in pull_result.stdout"
+
+    - name: Verify image is cached
+      ansible.builtin.shell: "crictl images | grep -F '{{ image.split(':')[0] }}' | grep -F '{{ image.split(':')[-1] }}'"
+      changed_when: false
